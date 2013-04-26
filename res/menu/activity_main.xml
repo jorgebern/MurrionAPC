@@ -1,0 +1,11 @@
+<menu
+  xmlns:android="http://schemas.android.com/apk/res/android">
+ 
+<item android:id="@+id/CtxLblOpc1"
+    android:title="Times"></item>
+<item android:id="@+id/CtxLblOpc2"
+    android:title="Quality"></item>
+<item android:id="@+id/CtxLblOpc3"
+    android:title="Web Page"></item>
+ 
+</menu>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Murrion APC</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="menu_settings">Settings</string>
+    <string name="title_activity_select_minutes">SelectMinutes</string>
+    <string name="action_settings">Settings</string>
+
+    <string-array name="Times">
+        <item>1 Minute</item>
+        <item>10 Minutes</item>
+        <item>30 Minutes</item>
+    </string-array>
+    <string-array name="Quality">
+        <item>Low</item>
+        <item>Medium</item>
+        <item>Hight</item>
+    </string-array>
+
+    <string name="title_activity_web_page_selector">WebPageSelector</string>
+
+</resources>
