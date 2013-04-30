@@ -1,7 +1,9 @@
 package com.osgo.autocamera;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -12,6 +14,8 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
@@ -20,6 +24,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.FileBody;
+import org.apache.http.entity.mime.content.InputStreamBody;
 import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicHeader;
@@ -81,10 +86,47 @@ public class ApiService {
 		//Need the protocol http://
 		HttpResponse response = httpClient.execute(postRequest);
  
-		httpClient.getConnectionManager().shutdown();
+		if (response.getStatusLine().getStatusCode() != 200) {
+			// Log error and issue toast to user
+			}
+			 
+			String responseJSON = readIt(response.getEntity().getContent(), len);
+	        /*try {
+	        	JSONObject jsonObj = new JSONObject(responseJSON);
+	         	httpClient.getConnectionManager().shutdown();
+	         	return jsonObj;
+	         } catch (Exception e) {
+	            e.printStackTrace();
+	         }*/
 		
 		return null;
 	}
+	
+	//TODO ALL
+	//---------------------------------------------------------------------------------------------------
+	public void sendFile(File file, String url) throws IOException, ClientProtocolException {
+		
+		InputStream is = new FileInputStream(file);
+		
+	    HttpClient httpClient = new DefaultHttpClient();
+	    HttpPost postRequest = new HttpPost(url);
+	    
+	    byte[] data = IOUtils.toByteArray(is);
+	    
+	    InputStreamBody isb= new InputStreamBody(new ByteArrayInputStream(data), "file");
+	    
+	    MultipartEntity multipartContent = new MultipartEntity();
+	    
+	    multipartContent.addPart("file", new StringBody("file"));
+	    multipartContent.addPart("file", new FileBody(file));
+
+	    
+	    postRequest.setEntity(multipartContent);
+	    
+	     httpClient.execute(postRequest);
+	}
+
+//------------------------------------------------------------------------------------------------------------
 	
 	private String changeUri(String url) {
 		
@@ -103,7 +145,7 @@ public class ApiService {
 		String url = (String) input.get("URL");
 		String path = (String) input.get("MEDIA");
 		String name = (String) input.get("MEDIA_NAME");
-		Long surveyId = (Long) input.get("SURVEY");
+		//Long surveyId = (Long) input.get("SURVEY");
 
 		HttpClient client = new DefaultHttpClient();
 		HttpPost post = new HttpPost(url);
@@ -231,7 +273,7 @@ public class ApiService {
 		return null;
 	}
 	
-	private List<String> commaSeperatedList(String list){
+	/*private List<String> commaSeperatedList(String list){
 		List<String> arrayList = new ArrayList<String>();
 		
 		String string = "";
@@ -266,6 +308,6 @@ public class ApiService {
 		}
 		
 		return arrayList;
-	}
+	}*/
 	
 }

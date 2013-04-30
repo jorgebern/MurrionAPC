@@ -1,14 +1,29 @@
 package com.osgo.autocamera;
 
-import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.content.FileBody;
+import org.apache.http.entity.mime.content.InputStreamBody;
+import org.apache.http.entity.mime.content.StringBody;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -38,9 +53,12 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.Toast;
 public class CameraActivity extends Activity {
 
+	
+	/*
+	 * Problems with the main thread and the internet Access
+	 */
 	protected Camera mCamera;
 	protected CameraPreview mPreview;
 	protected MediaRecorder mMediaRecorder;
@@ -65,7 +83,7 @@ public class CameraActivity extends Activity {
 	
 	
 	
-	String WebPage = "http://jorgebern.com/json.php";
+	String WebPage = "http://92.51.246.211/camera/index.php";
 	
 
 	@Override
@@ -73,6 +91,7 @@ public class CameraActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 		mContext = this;
+		
 		//Return the preference in the PREFS file
 		prefs = getSharedPreferences(PREFS, 0);
 		timeout = prefs.getLong("TIMEOUT", 60000);
@@ -92,6 +111,13 @@ public class CameraActivity extends Activity {
 		preview = (FrameLayout) findViewById(R.id.camera_preview);
 		preview.addView(mPreview);
 		mPreview.surfaceChanged(null, 0, 0, 0);
+
+		//-------------------------------------------------------------
+		
+		
+		
+		
+		//-------------------------------------------------------------
 
 		// Add a listener to the Capture button
 		final Button captureButton = (Button) findViewById(R.id.button_capture);
@@ -239,7 +265,91 @@ public class CameraActivity extends Activity {
 			mCamera.lock();           // lock camera for later use
 		}
 	}
-
+	
+	//TODO
+	private void generateFile(String name) {
+		
+		File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+				"murrionApc");
+		
+		// Create the storage directory if it does not exist
+				if (! file.exists()){
+					if (! file.mkdirs()){
+						Log.d("MyCameraApp", "failed to create directory");
+						return;
+					}
+				}
+				FileWriter mediaFile = null;
+				
+				PrintWriter pw = null;
+				
+			try {
+				
+				mediaFile = new FileWriter(file.getPath() + File.separator +
+						"photo.dat", true);
+				//Abrimos el fichero y añadimos la linea nueva a nuestro "archivador"
+				pw = new PrintWriter(mediaFile);
+				pw.println(name);
+				
+				
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} finally {
+	           try {
+	               // Nuevamente aprovechamos el finally para
+	               // asegurarnos que se cierra el fichero.
+	        	   if (null != mediaFile)
+        		   	pw.close();
+               } catch (Exception e2) {
+                  e2.printStackTrace();
+               }
+            }
+	}
+	
+	private void readPhotos() {
+		
+		File archivo = null;
+		FileReader fr = null;
+		BufferedReader br = null;
+		File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+				"murrionApc");
+ 
+		try {
+	         // Apertura del fichero y creacion de BufferedReader para poder
+	         // hacer una lectura comoda (disponer del metodo readLine()).
+	         archivo = new File (file.getPath() + File.separator +
+						"photo.dat");
+	         fr = new FileReader (archivo);
+	         br = new BufferedReader(fr);
+	 
+	         // Lectura del fichero
+	         String linea;
+	         while((linea=br.readLine())!=null) {
+	        	 Send.sendFile(new File(file.getPath() + File.separator + linea), WebPage);
+	         }
+	            
+      }
+      catch(Exception e){
+    	  Log.i("ERROR","Exception 1");
+         e.printStackTrace();
+      }finally{
+         try{                   
+            if( null != fr ){  
+               fr.close();    
+            }
+            //Delete the file
+            archivo.delete();
+            
+         }catch (Exception e2){
+            e2.printStackTrace();
+         }
+      }
+	}
+	
 	protected void releaseCamera(){
 		if (mCamera != null){
 			mCamera.release();        // release the camera for other applications
@@ -268,12 +378,9 @@ public class CameraActivity extends Activity {
 	/** A safe way to get an instance of the Camera object. */
 	public static Camera getCameraInstance(){
 		Camera c = null;
-		
-		
+
 		try {
-			
 			c = Camera.open();
-			
 			// attempt to get a Camera instance
 		}
 		catch (Exception e){
@@ -290,6 +397,7 @@ public class CameraActivity extends Activity {
 		@Override
 		public void onPictureTaken(byte[] data, Camera camera) {
 
+			
 			if(data == null)
 				return;
 			
@@ -301,16 +409,17 @@ public class CameraActivity extends Activity {
 				return;
 			}
 			
-			Log.i("onPickture", "1");
-			photoName = Base64.encodeToString(data, RESULT_CANCELED); 
+			
+			//photoName = Base64.encodeToString(data, RESULT_CANCELED); 
 			
 			try {
 				FileOutputStream fos = new FileOutputStream(pictureFile);
 				fos.write(data);
 				
 				fos.close();
+
 				
-				Log.i("onPickture", "2");
+				//sendFile(pictureFile);
 				
 				// Tell the media scanner about the new file so that it is
 		        // immediately available to the user.
@@ -319,18 +428,17 @@ public class CameraActivity extends Activity {
 						new MediaScannerConnection.OnScanCompletedListener() {
 					public void onScanCompleted(String path, Uri uri) {
 						
-
-						
 						Log.i("ExternalStorage", "Scanned " + path + ":");
 						Log.i("ExternalStorage", "-> uri=" + uri);
 					}
 				});
+			}catch(ClientProtocolException e) {
+				Log.d("ERROR", "LALALALALALALALA");
 			} catch (FileNotFoundException e) {
 				Log.d(TAG, "File not found: " + e.getMessage());
 			} catch (IOException e) {
 				Log.d(TAG, "Error accessing file: " + e.getMessage());
-			}
-			Log.i("onPickture", "3");
+			} 
 			
 		}
 	};
@@ -340,40 +448,31 @@ public class CameraActivity extends Activity {
 
 		private long timeout;
 		private volatile boolean wait = true; 
+		private boolean firstTime = true;
 		
 		public Picturetask(long timeout){
 			
 			this.timeout = timeout;
 		}
 		
-		@Override                             //????
+		@Override                            
 		protected Boolean doInBackground(String... arg0) {
-			try {
-				takePicture();
-			} catch (JSONException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			if(firstTime) {
+				readPhotos();
+				firstTime = false;
 			}
+			
+				takePicture();
+				
 			return null;
 		}
-		
-		private void takePicture() throws JSONException, IOException, InterruptedException{
-			
+
+		private void takePicture() {
 			
 			while(wait) {
-				Log.i("takePicture", "1");
 				CameraActivity.this.mCamera.takePicture(null, null, mPicture);
-				Log.i("takePicture", "2");
-
 				
-				Log.i("Json", "1");
-				JSONObject pic = new JSONObject();
+				/*JSONObject pic = new JSONObject();
 				try {
 					pic.put("Latitude", gps.getLatitude());
 					pic.put("Longitude", gps.getLongitude());
@@ -388,15 +487,11 @@ public class CameraActivity extends Activity {
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
-				}
-				Log.i("Json", "3");
-				
-				
-				
-				Log.i("takePicture", "3");
+				}*/
 				
 				Intent i = new Intent(BROADCAST_PREVIEW);
 				sendBroadcast(i);
+				
 				try {
 					Thread.sleep(timeout);
 				} catch (InterruptedException e) {
@@ -410,6 +505,8 @@ public class CameraActivity extends Activity {
 		public void cancelPicture(){
 			this.wait = false;
 		}
+
+
 	}
 
 	/** Create a file Uri for saving an image or video */
@@ -452,7 +549,6 @@ public class CameraActivity extends Activity {
 			return null;
 		}
 
-		numPhoto++;
 		return mediaFile;
 	}
 	
