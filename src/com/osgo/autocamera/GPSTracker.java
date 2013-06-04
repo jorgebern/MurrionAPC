@@ -10,7 +10,11 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 
-
+/**
+ * Class used to take the GPS data
+ * @author JorgeBern
+ *
+ */
 public class GPSTracker extends Service implements LocationListener  {
 
 	private final Context mContext;

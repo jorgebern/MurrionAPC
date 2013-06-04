@@ -46,6 +46,10 @@
             android:name="com.osgo.autocamera.WebPageSelector"
             android:label="@string/title_activity_web_page_selector" >
         </activity>
+        <activity
+            android:name="com.osgo.autocamera.SelectOldServer"
+            android:label="@string/title_activity_select_old_server" >
+        </activity>
     </application>
 
 </manifest>

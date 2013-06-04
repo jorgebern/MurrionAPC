@@ -19,5 +19,6 @@
     </string-array>
 
     <string name="title_activity_web_page_selector">WebPageSelector</string>
+    <string name="title_activity_select_old_server">SelectOldServer</string>
 
 </resources>

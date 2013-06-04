@@ -3,19 +3,29 @@ package com.osgo.autocamera;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
+/**
+ * Used to select the time or the quality
+ * @author JorgeBern
+ *
+ */
 public class SelectMinutes extends Activity implements OnItemSelectedListener {
 
+	//------------------------------
+	//VARIABLES
+	//------------------------------
 	int selection = 2;
 	private ArrayAdapter<String> listAdapter ;
 	Intent i ;
 	
+	//-------------
+	//CONSTRUCTOR
+	//-------------
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -27,6 +37,7 @@ public class SelectMinutes extends Activity implements OnItemSelectedListener {
 	    final int[] RealTimes = new int[] { 1,10,30};
 	    
 	    final String[] quality = new String[] { "Low", "Medium", "High" };
+	    final int[] RealQuality = new int[] {10,50,100};
 	    
 
 	    Bundle extras = getIntent().getExtras();
@@ -49,7 +60,7 @@ public class SelectMinutes extends Activity implements OnItemSelectedListener {
 	        	if(selection == 1) {
 	        		i.putExtra("valuesI", RealTimes[position]);
 	        	} else {
-	        		i.putExtra("valuesS", quality[position]);
+	        		i.putExtra("valuesS", RealQuality[position]);
 	        	}
 
 	        	startActivity(i);
@@ -59,6 +70,12 @@ public class SelectMinutes extends Activity implements OnItemSelectedListener {
 	    
 	}
 	
+	//-----------------------
+    //METHODS
+    //-----------------------
+	/**
+	 * Control the back button.
+	 */
 	@Override
 	public void onBackPressed() {
 		Intent i  = new Intent(this, CameraActivity.class);

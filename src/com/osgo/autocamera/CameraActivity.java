@@ -1,31 +1,17 @@
 package com.osgo.autocamera;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.entity.mime.content.InputStreamBody;
-import org.apache.http.entity.mime.content.StringBody;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
@@ -36,6 +22,10 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
+import android.location.Criteria;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.media.MediaRecorder;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
@@ -43,7 +33,6 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.util.Base64;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
@@ -53,12 +42,23 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
-public class CameraActivity extends Activity {
+import android.widget.Toast;
+
+/**
+ * Main Class
+ * @author JorgeBern
+ *
+ */
+public class CameraActivity extends Activity implements LocationListener{
 
 	
 	/*
 	 * Problems with the main thread and the internet Access
 	 */
+	
+	//-------------------------
+	//VARIABLES
+	//-------------------------
 	protected Camera mCamera;
 	protected CameraPreview mPreview;
 	protected MediaRecorder mMediaRecorder;
@@ -71,21 +71,31 @@ public class CameraActivity extends Activity {
 	public static final int MEDIA_TYPE_IMAGE = 1;
 	public static final int MEDIA_TYPE_VIDEO = 2;
 	public static final String PREFS = "CAMERA_APP";
-	public static int numPhoto=0;
 	private static final String BROADCAST_PREVIEW = "refresh";
 	private static final int CAPTURE_IMAGE_ACTIVITY_REQUEST_CODE = 100;
 	private static final int CAPTURE_VIDEO_ACTIVITY_REQUEST_CODE = 200;
 
 	long timeout;
+	static int quality;
 	GPSTracker gps;
+	//LocationManager locationManager =
+	  //      (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
 	
-	static String photoName = "null";
+	//SERVER
+	//http://92.51.246.211/camera/index.php
+	//http://www.jorgebern.com/android2.php
+	String WebPage = "http://www.jorgebern.com/android2.php";
 	
-	
-	
-	String WebPage = "http://92.51.246.211/camera/index.php";
-	
+	//----------------------------------------------
+	//METHODS
+	//----------------------------------------------
 
+	//----------
+	//OVERRIDE
+	//----------
+	/**
+	 * OnCreate Method, Get the prefereences, Prepare the camera and the preview.
+	 */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -95,10 +105,10 @@ public class CameraActivity extends Activity {
 		//Return the preference in the PREFS file
 		prefs = getSharedPreferences(PREFS, 0);
 		timeout = prefs.getLong("TIMEOUT", 60000);
+		quality = 100;
 		gps = new GPSTracker(this);
 		
 		Send = new ApiService("", "", this);
-
 		
 		// Create an instance of Camera
 		if(checkCameraHardware(this)){
@@ -112,23 +122,20 @@ public class CameraActivity extends Activity {
 		preview.addView(mPreview);
 		mPreview.surfaceChanged(null, 0, 0, 0);
 
-		//-------------------------------------------------------------
-		
-		
-		
-		
-		//-------------------------------------------------------------
-
 		// Add a listener to the Capture button
 		final Button captureButton = (Button) findViewById(R.id.button_capture);
 		captureButton.setOnClickListener( new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
+				showToast();
+				//generateLocation();
 				// get an image from the camera
 				takePictures.execute(null);
 				captureButton.setOnClickListener(new View.OnClickListener() {
 					@Override
 					public void onClick(View v) {
+						
+
 						// get an image from the camera
 						takePictures.cancelPicture();
 						captureButton.setOnClickListener(null);
@@ -163,17 +170,35 @@ public class CameraActivity extends Activity {
 						 } else if(value == 30) {
 							 timeout = 1800000;
 						 }
-					
+						 
+						 value = extras.getInt("valuesS");
+						 if(value == 10) {
+							  quality = value ;
+						 } else if(value == 50) {
+							 quality = value;
+						 } else if(value == 100) {
+							 quality = value;
+						 }
+
 					if (extras.getString("server") != null) {
 						
 						WebPage =  extras.getString("server");
 					}
 					
+					if (extras.getString("oldServer") != null) {
+						
+						WebPage =  extras.getString("oldServer");
+					}
+					
 				}
+		Toast.makeText(this, "Time: " + (timeout/1000)/60 + " Minutes", Toast.LENGTH_SHORT).show();
+		Toast.makeText(this, "Server: " + WebPage, Toast.LENGTH_SHORT).show();
 		takePictures = new Picturetask(timeout);
 	}
 	
-	
+	/**
+	 * this method prepare the aplication to the Stop State.
+	 */
 	@Override
 	protected void onStop()
 	{
@@ -182,6 +207,9 @@ public class CameraActivity extends Activity {
 	}
 	
 	
+	/**
+	 * Create the Context menu, it is used to pick the quality, the time and the server name.
+	 */
 	@Override
 	public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo)
 	{
@@ -191,18 +219,10 @@ public class CameraActivity extends Activity {
 	    inflater.inflate(R.menu.activity_main, menu);
 	}
 	
-	
-	public String getDeviceName() {
-		  String manufacturer = Build.MANUFACTURER;
-		  String model = Build.MODEL;
-		  
-		  if (model.startsWith(manufacturer)) {
-		    return model ;
-		  } else {
-			  return manufacturer + ", " +model ;
-		  }
-		}
-	
+	/**
+	 * Control if you pick any button on contextual menu
+	 * 
+	 */
 	@Override
 	public boolean onContextItemSelected(MenuItem item) {
 	 
@@ -225,7 +245,12 @@ public class CameraActivity extends Activity {
 	        
 	        case R.id.CtxLblOpc3:
 	        	i = new Intent(this, WebPageSelector.class);
-	        	i.putExtra("Values", 2);
+	        	startActivity(i);
+	        	finish();
+	           
+	            return true;
+	        case R.id.CtxLblOpc4:
+	        	i = new Intent(this, SelectOldServer.class);
 	        	startActivity(i);
 	        	finish();
 	           
@@ -235,28 +260,97 @@ public class CameraActivity extends Activity {
 	    }
 	}
 	
-	protected void resetPreview(){
-		mCamera.stopPreview();
-		mPreview = new CameraPreview(this, mCamera);
-		preview.addView(mPreview);
-	}
-	
+	/**
+	 * Control the state Pause
+	 */
 	@Override
 	protected void onPause() {
 		super.onPause();
 		takePictures.cancelPicture();
 //		takePictures.cancel(true);
-		releaseMediaRecorder();       // if you are using MediaRecorder, release it first
+		//releaseMediaRecorder();       // if you are using MediaRecorder, release it first
 		releaseCamera();              // release the camera immediately on pause event
 		
 	}
 	
+	/**
+	 * Control the state Start
+	 */
 	@Override
 	public void onStart() {
         super.onStart();
         registerReceiver(refreshPreview, new IntentFilter(BROADCAST_PREVIEW));
     }
+	
+	/**
+	 * Create the menu options, reading the File R.Java
+	 */
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		// Inflate the menu; this adds items to the action bar if it is present.
+		getMenuInflater().inflate(R.menu.activity_main, menu);
+		return true;
+	}
+	
+	
+	//-------------
+	//PUBLIC && PROTECTED METHODS
+	//-------------
+	/**
+	 * Get the Device name 
+	 * 
+	 * @return
+	 */
+	public String getDeviceName() {
+		  String manufacturer = Build.MANUFACTURER;
+		  String model = Build.MODEL;
+		  
+		  if (model.startsWith(manufacturer)) {
+		    return model ;
+		  } else {
+			  return manufacturer + ", " +model ;
+		  }
+		}
+	
+	/** A safe way to get an instance of the Camera object. */
+	public static Camera getCameraInstance(){
+		Camera c = null;
 
+		try {
+			c = Camera.open();
+			// attempt to get a Camera instance
+			
+			Camera.Parameters params = c.getParameters();
+			params.setJpegQuality(quality);
+			c.setParameters(params);
+			Log.i("CAMERA QUALITY","" + c.getParameters().getJpegQuality());
+			
+		}
+		catch (Exception e){
+			// Camera is not available (in use or does not exist)
+		}
+		return c; // returns null if camera is unavailable
+	}
+	
+	
+	
+	/**
+	 *  
+	 *  Reset the preview.
+	 *  TAKE CARE, if you reset the camera early, the picture will not be saved
+	 */
+	protected void resetPreview(){
+		mCamera.stopPreview();
+		mPreview = new CameraPreview(mContext, mCamera);
+		preview.addView(mPreview);
+	}
+	
+	
+
+	/**
+	 * Release the media recorder and leave it free for other uses
+	 * 
+	 */
 	protected void releaseMediaRecorder(){
 		if (mMediaRecorder != null) {
 			mMediaRecorder.reset();   // clear recorder configuration
@@ -266,7 +360,75 @@ public class CameraActivity extends Activity {
 		}
 	}
 	
+	/**
+	 * Release the camera and leave the object free.
+	 */
+	protected void releaseCamera(){
+		if (mCamera != null){
+			mCamera.release();        // release the camera for other applications
+			mCamera = null;
+		}
+	}
+
+
+	//----------------
+	//PRIVATE METHODS
+	//----------------
+	
+	/** Check if this device has a camera */
+	private boolean checkCameraHardware(Context context) {
+		if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)){
+			// this device has a camera
+			return true;
+		} else {
+			// no camera on this device
+			return false;
+		}
+	}
+	
+	/*private void generateLocation() {
+		
+		Criteria crta = new Criteria();
+		crta.setAccuracy(Criteria.ACCURACY_FINE);
+		crta.setAltitudeRequired(false);
+		crta.setBearingRequired(false);
+		crta.setCostAllowed(true);
+		crta.setPowerRequirement(Criteria.POWER_LOW);
+		String provider = locationManager.getBestProvider(crta, true); 
+		
+		
+		Location location = locationManager.getLastKnownLocation(provider);
+		
+		Log.i("LATITUDE",""+location.getLatitude());
+		
+	}*/
+	
+	
+	
+	private void showToast() {
+		
+		File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+				"murrionApc");
+		
+		File file2 = new File(file.getPath() + File.separator +"photo.dat");
+		
+		if(file2.exists()){
+			Toast.makeText(this, "Uploading Photos, please wait", Toast.LENGTH_LONG).show();
+		}else {
+			Toast.makeText(this, "Taking photo", Toast.LENGTH_LONG).show();
+		}
+	}
+	
+	
+	
+	
+	
 	//TODO
+	/**
+	 * Generate the file and save the picture name. 
+	 * 
+	 * @param name
+	 */
 	private void generateFile(String name) {
 		
 		File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
@@ -310,6 +472,9 @@ public class CameraActivity extends Activity {
             }
 	}
 	
+	/**
+	 * Read the picture name in the photo.dat File and send the data to ApiService
+	 */
 	private void readPhotos() {
 		
 		File archivo = null;
@@ -318,6 +483,7 @@ public class CameraActivity extends Activity {
 		File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
 				"murrionApc");
  
+		//Toast.makeText(mContext, "Uploading Photos, please wait", Toast.LENGTH_LONG).show();
 		try {
 	         // Apertura del fichero y creacion de BufferedReader para poder
 	         // hacer una lectura comoda (disponer del metodo readLine()).
@@ -329,7 +495,7 @@ public class CameraActivity extends Activity {
 	         // Lectura del fichero
 	         String linea;
 	         while((linea=br.readLine())!=null) {
-	        	 Send.sendFile(new File(file.getPath() + File.separator + linea), WebPage);
+	        	 Send.sendFile(new File(file.getPath() + File.separator + linea), WebPage, getDeviceName(), gps.getLatitude() + ":" + gps.getLongitude());
 	         }
 	            
       }
@@ -350,165 +516,6 @@ public class CameraActivity extends Activity {
       }
 	}
 	
-	protected void releaseCamera(){
-		if (mCamera != null){
-			mCamera.release();        // release the camera for other applications
-			mCamera = null;
-		}
-	}
-
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.activity_main, menu);
-		return true;
-	}
-
-	/** Check if this device has a camera */
-	private boolean checkCameraHardware(Context context) {
-		if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)){
-			// this device has a camera
-			return true;
-		} else {
-			// no camera on this device
-			return false;
-		}
-	}
-
-	/** A safe way to get an instance of the Camera object. */
-	public static Camera getCameraInstance(){
-		Camera c = null;
-
-		try {
-			c = Camera.open();
-			// attempt to get a Camera instance
-		}
-		catch (Exception e){
-			// Camera is not available (in use or does not exist)
-		}
-		return c; // returns null if camera is unavailable
-	}
-
-	protected PictureCallback mPicture = new PictureCallback() {
-
-		private String TAG = "PictureCallBack";
-		
-		
-		@Override
-		public void onPictureTaken(byte[] data, Camera camera) {
-
-			
-			if(data == null)
-				return;
-			
-			File pictureFile = getOutputMediaFile(MEDIA_TYPE_IMAGE);
-			
-			
-			if (pictureFile == null){
-				Log.d(TAG, "Error creating media file, check storage permissions: ");
-				return;
-			}
-			
-			
-			//photoName = Base64.encodeToString(data, RESULT_CANCELED); 
-			
-			try {
-				FileOutputStream fos = new FileOutputStream(pictureFile);
-				fos.write(data);
-				
-				fos.close();
-
-				
-				//sendFile(pictureFile);
-				
-				// Tell the media scanner about the new file so that it is
-		        // immediately available to the user.
-				MediaScannerConnection.scanFile(mContext,
-						new String[] { pictureFile.toString() }, null,
-						new MediaScannerConnection.OnScanCompletedListener() {
-					public void onScanCompleted(String path, Uri uri) {
-						
-						Log.i("ExternalStorage", "Scanned " + path + ":");
-						Log.i("ExternalStorage", "-> uri=" + uri);
-					}
-				});
-			}catch(ClientProtocolException e) {
-				Log.d("ERROR", "LALALALALALALALA");
-			} catch (FileNotFoundException e) {
-				Log.d(TAG, "File not found: " + e.getMessage());
-			} catch (IOException e) {
-				Log.d(TAG, "Error accessing file: " + e.getMessage());
-			} 
-			
-		}
-	};
-	
-	//TODO
-	private class Picturetask extends AsyncTask<String, Void, Boolean> {
-
-		private long timeout;
-		private volatile boolean wait = true; 
-		private boolean firstTime = true;
-		
-		public Picturetask(long timeout){
-			
-			this.timeout = timeout;
-		}
-		
-		@Override                            
-		protected Boolean doInBackground(String... arg0) {
-			if(firstTime) {
-				readPhotos();
-				firstTime = false;
-			}
-			
-				takePicture();
-				
-			return null;
-		}
-
-		private void takePicture() {
-			
-			while(wait) {
-				CameraActivity.this.mCamera.takePicture(null, null, mPicture);
-				
-				/*JSONObject pic = new JSONObject();
-				try {
-					pic.put("Latitude", gps.getLatitude());
-					pic.put("Longitude", gps.getLongitude());
-					pic.put("DeviceName", getDeviceName());
-					pic.put("photo", photoName);
-					Log.i("Json", "2");
-					
-					Send.sendRequest(WebPage, "POST", pic);
-				} catch (JSONException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}*/
-				
-				Intent i = new Intent(BROADCAST_PREVIEW);
-				sendBroadcast(i);
-				
-				try {
-					Thread.sleep(timeout);
-				} catch (InterruptedException e) {
-					
-					e.printStackTrace();
-					break;
-				}
-			}
-		}	
-		
-		public void cancelPicture(){
-			this.wait = false;
-		}
-
-
-	}
-
 	/** Create a file Uri for saving an image or video */
 	private static Uri getOutputMediaFileUri(int type){
 		return Uri.fromFile(getOutputMediaFile(type));
@@ -552,6 +559,78 @@ public class CameraActivity extends Activity {
 		return mediaFile;
 	}
 	
+	//------------------------------------------
+	//INTERFACES
+	//------------------------------------------
+
+	
+	/**
+	 * Create the interface who's responsible about the picture callback 
+	 */
+	protected PictureCallback mPicture = new PictureCallback() {
+
+		private String TAG = "PictureCallBack";
+		
+		/**
+		 * Control when the picture is saved
+		 * Called by the system
+		 */
+		@Override
+		public void onPictureTaken(byte[] data, Camera camera) {
+
+			if(data == null){
+				return;
+			}
+				
+			
+			File pictureFile = getOutputMediaFile(MEDIA_TYPE_IMAGE);
+			
+			
+			if (pictureFile == null){
+				Log.d(TAG, "Error creating media file, check storage permissions: ");
+				return;
+			}
+			
+			try {
+				FileOutputStream fos = new FileOutputStream(pictureFile);
+				fos.write(data);
+				
+				fos.close();
+				
+				generateFile(pictureFile.getName());
+				
+				// Tell the media scanner about the new file so that it is
+		        // immediately available to the user.
+				MediaScannerConnection.scanFile(mContext,
+						new String[] { pictureFile.toString() }, null,
+						new MediaScannerConnection.OnScanCompletedListener() {
+					public void onScanCompleted(String path, Uri uri) {
+						
+						//Refresh the preview here, if you do it in other site will be fail
+						//Toast.makeText(this, "Picture saved", Toast.LENGTH_SHORT).show();
+						
+						Intent i = new Intent(BROADCAST_PREVIEW);
+						sendBroadcast(i);
+						
+						Log.i("ExternalStorage", "Scanned " + path + ":");
+						Log.i("ExternalStorage", "-> uri=" + uri);
+					}
+				});
+			}catch(ClientProtocolException e) {
+				Log.d("ERROR", "LALALALALALALALA");
+			} catch (FileNotFoundException e) {
+				Log.d(TAG, "File not found: " + e.getMessage());
+			} catch (IOException e) {
+				Log.d(TAG, "Error accessing file: " + e.getMessage());
+			} 
+			
+			
+		}
+	};
+	
+	/**
+	 * Interface to Refresh the preview.
+	 */
 	private BroadcastReceiver refreshPreview = new BroadcastReceiver() {
 
 		@Override
@@ -561,5 +640,95 @@ public class CameraActivity extends Activity {
 			
 		}
 	};
+	
 
+	//-------------------------------------------------------------------------------
+	//NEW CLASS
+	//-------------------------------------------------------------------------------
+	/**
+	 * Async task to take the picture in background.
+	 * @author JorgeBern
+	 *
+	 */
+	private class Picturetask extends AsyncTask<String, Void, Boolean> {
+
+		private long timeout;
+		private volatile boolean wait = true; 
+		private boolean firstTime = true;
+		
+		public Picturetask(long timeout){
+			
+			this.timeout = timeout;
+		}
+		
+		/**
+		 * Method used to do actions in background
+		 */
+		@Override                            
+		protected Boolean doInBackground(String... arg0) {
+			
+			if(firstTime) {
+				readPhotos();
+				firstTime = false;
+			}
+				takePicture();
+				
+			return null;
+		}
+
+		/**
+		 * Take a picture and sleep this thread until the next picture
+		 */
+		private void takePicture() {
+			
+			while(wait) {
+
+				
+				CameraActivity.this.mCamera.takePicture(null, null, mPicture);
+				
+				try {
+					Thread.sleep(timeout);
+				} catch (InterruptedException e) {
+					
+					e.printStackTrace();
+					break;
+				}
+			}
+		}	
+		
+		/**
+		 * Cancel the pictures
+		 */
+		public void cancelPicture(){
+			this.wait = false;
+		}
+
+
+	}
+
+
+	@Override
+	public void onLocationChanged(Location location) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onProviderDisabled(String provider) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onProviderEnabled(String provider) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onStatusChanged(String provider, int status, Bundle extras) {
+		// TODO Auto-generated method stub
+		
+	}
+	
 }

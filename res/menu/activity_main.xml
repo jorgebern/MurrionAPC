@@ -7,5 +7,7 @@
     android:title="Quality"></item>
 <item android:id="@+id/CtxLblOpc3"
     android:title="Web Page"></item>
+<item android:id="@+id/CtxLblOpc4"
+    android:title="Old servers"></item>
  
 </menu>

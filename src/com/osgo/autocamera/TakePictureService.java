@@ -7,13 +7,26 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
 
+/**
+ * Service to help the application to take the picture
+ * @author JorgeBern
+ *
+ */
 public class TakePictureService extends Service {
-    private static final String PREFS_NAME = "VerifiPrefs";
+   
+	//------------------------------
+	//VARIABLES
+	//------------------------------
+	private static final String PREFS_NAME = "VerifiPrefs";
     private SharedPreferences settings;
     private String API_KEY;
     private String API;
     private ApiService api;
     
+    
+	//-----------------------
+    //METHODS
+    //-----------------------
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
     	
